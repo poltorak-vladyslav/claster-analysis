@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кластерний аналіз</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; padding: 20px; }
+        table { border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: center; }
+        input { width: 50px; text-align: center; }
+        button { margin-top: 10px; padding: 10px; }
+    </style>
+</head>
+<body>
+<h1>Кластерний аналіз</h1>
+<p>Введіть вихідні дані:</p>
+<table id="inputTable">
+    <thead>
+    <tr><th></th><th>Атрибут 1</th><th>Атрибут 2</th><th>Атрибут 3</th><th>Атрибут 4</th></tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<button onclick="performClustering()">Запустити аналіз</button>
+
+<h2>Суми по кожному атрибуту</h2>
+<table id="sumTable"><tbody></tbody></table>
+
+<h2>Нормалізовані значення</h2>
+<table id="normalizedTable"><tbody></tbody></table>
+
+<h2>Матриця відстаней</h2>
+<table id="distanceTable"><thead></thead><tbody></tbody></table>
+
+<h2>Критична відстань</h2>
+<p id="criticalDistance"></p>
+
+<h2>Результати кластеризації</h2>
+<div id="clusterResults"></div>
+
+<script>
+    const defaultData = [
+        [30, 0.6, 2, 5],
+        [33, 0.6, 2.5, 5],
+        [50, 1, 2, 15],
+        [45, 0.8, 2, 10],
+        [20, 0.2, 1, 5],
+        [25, 0.6, 1, 20]
+    ];
+
+    function createInputTable() {
+        let tbody = document.querySelector('#inputTable tbody');
+        tbody.innerHTML = '';
+        defaultData.forEach((row, i) => {
+            let tr = `<tr><th>Об'єкт ${i + 1}</th>` + row.map(value => `<td><input type='number' value='${value}'></td>`).join('') + `</tr>`;
+            tbody.innerHTML += tr;
+        });
+    }
+
+    function performClustering() {
+        let inputs = document.querySelectorAll('#inputTable tbody tr');
+        let objects = Array.from(inputs).map(tr => Array.from(tr.querySelectorAll('input')).map(input => parseFloat(input.value)));
+
+        let sums = objects[0].map((_, colIndex) => objects.reduce((sum, row) => sum + row[colIndex], 0));
+        document.querySelector('#sumTable tbody').innerHTML = `<tr>${sums.map(sum => `<td>${sum.toFixed(2)}</td>`).join('')}</tr>`;
+
+        let normalizedData = objects.map(row => row.map((value, colIndex) => value / sums[colIndex]));
+        let weights = normalizedData.map(row => row.reduce((sum, val) => sum + val, 0));
+
+        let normalizedTableBody = document.querySelector('#normalizedTable tbody');
+        normalizedTableBody.innerHTML = normalizedData.map((row, i) => `<tr><td>Об'єкт ${i + 1}</td>` + row.map(val => `<td>${val.toFixed(6)}</td>`).join('') + `<td>${weights[i].toFixed(6)}</td></tr>`).join('');
+
+        let distances = weights.map((w1, i) => weights.map(w2 => Math.abs(w1 - w2)));
+        let distanceTableHead = `<tr><th></th>` + weights.map((_, i) => `<th>Об'єкт ${i + 1}</th>`).join('') + `</tr>`;
+        let distanceTableBody = distances.map((row, i) => `<tr><th>Об'єкт ${i + 1}</th>` + row.map(val => `<td>${val.toFixed(6)}</td>`).join('') + `</tr>`).join('');
+        document.querySelector('#distanceTable thead').innerHTML = distanceTableHead;
+        document.querySelector('#distanceTable tbody').innerHTML = distanceTableBody;
+
+        let minDistances = distances.map(row => Math.min(...row.filter(d => d > 0)));
+        let criticalDistance = Math.max(...minDistances);
+        document.getElementById('criticalDistance').textContent = `Критична відстань: ${criticalDistance.toFixed(6)}`;
+
+        let clusters = [];
+        for (let i = 0; i < weights.length; i++) {
+            let addedToCluster = false;
+            for (let cluster of clusters) {
+                let center = cluster.reduce((sum, idx) => sum + weights[idx], 0) / cluster.length;
+                if (Math.abs(weights[i] - center) <= criticalDistance) {
+                    cluster.push(i);
+                    addedToCluster = true;
+                    break;
+                }
+            }
+            if (!addedToCluster) {
+                clusters.push([i]);
+            }
+        }
+
+        let clusterResults = clusters.map((cluster, index) => `<h3>Кластер ${index + 1}</h3><p>${cluster.map(i => `Об'єкт ${i + 1}`).join(', ')}</p>`).join('');
+        document.getElementById('clusterResults').innerHTML = clusterResults;
+    }
+
+    createInputTable();
+</script>
+</body>
+</html>
